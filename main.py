@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 import struct
 from PIL import Image
 import io
+import numpy as np
 import torch
 from transformers import CLIPProcessor, CLIPModel
 
@@ -10,43 +11,58 @@ from transformers import CLIPProcessor, CLIPModel
 app = FastAPI(title=".avj Encoder/Decoder with Embeddings")
 
 # ------------------- AVJ Format -------------------
-HEADER_FORMAT = '<4s H I I B H B'
+# Header now includes lengths of alt_text embedding and image embedding
+HEADER_FORMAT = '<4s H I I B H B I I'
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
 def image_to_bytes(image_file):
     img = Image.open(image_file).convert("RGB")
     return img.tobytes(), img.width, img.height, img.mode
 
-def encode_headers(raw_bytes, image_height, image_width, image_mode, alt_text):
+def encode_headers_with_embeddings(raw_bytes, h, w, mode, alt_text, alt_emb, img_emb):
     alt_text_encoded = alt_text.encode("utf-8")
     len_alt_text_encoded = len(alt_text_encoded)
 
-    mode_encoded = image_mode.encode("utf-8")
+    mode_encoded = mode.encode("utf-8")
     len_mode_encoded = len(mode_encoded)
+
+    alt_emb_bytes = np.array(alt_emb, dtype=np.float32).tobytes()
+    img_emb_bytes = np.array(img_emb, dtype=np.float32).tobytes()
 
     header = struct.pack(
         HEADER_FORMAT,
-        b'AVJ1',  # magic
-        1,        # version
-        int(image_height),
-        int(image_width),
-        3,        # channels RGB
+        b'AVJ1',        # magic
+        1,              # version
+        int(h),
+        int(w),
+        3,              # channels RGB
         len_alt_text_encoded,
-        len_mode_encoded
+        len_mode_encoded,
+        len(alt_emb_bytes),
+        len(img_emb_bytes)
     )
-    return header + alt_text_encoded + mode_encoded + raw_bytes
 
-def decode_headers(encoded_bytes):
+    return header + alt_text_encoded + mode_encoded + alt_emb_bytes + img_emb_bytes + raw_bytes
+
+def decode_headers_with_embeddings(encoded_bytes):
     header = encoded_bytes[:HEADER_SIZE]
-    magic, version, height, width, channels, alt_text_len, mode_len = struct.unpack(HEADER_FORMAT, header)
+    magic, version, height, width, channels, alt_text_len, mode_len, alt_emb_len, img_emb_len = struct.unpack(HEADER_FORMAT, header)
 
     start = HEADER_SIZE
-    alt_text = encoded_bytes[start:start + alt_text_len].decode("utf-8")
-
+    alt_text = encoded_bytes[start:start+alt_text_len].decode("utf-8")
     start += alt_text_len
-    mode = encoded_bytes[start:start + mode_len].decode("utf-8")
 
+    mode = encoded_bytes[start:start+mode_len].decode("utf-8")
     start += mode_len
+
+    alt_emb_bytes = encoded_bytes[start:start+alt_emb_len]
+    alt_embedding = np.frombuffer(alt_emb_bytes, dtype=np.float32)
+    start += alt_emb_len
+
+    img_emb_bytes = encoded_bytes[start:start+img_emb_len]
+    image_embedding = np.frombuffer(img_emb_bytes, dtype=np.float32)
+    start += img_emb_len
+
     image_bytes = encoded_bytes[start:]
 
     return {
@@ -57,6 +73,8 @@ def decode_headers(encoded_bytes):
         "channels": channels,
         "alt_text": alt_text,
         "mode": mode,
+        "alt_embedding": alt_embedding.tolist(),
+        "image_embedding": image_embedding.tolist(),
         "image_bytes": image_bytes
     }
 
@@ -84,26 +102,13 @@ def embed_image(pil_image: Image.Image):
 @app.post("/encode/")
 async def encode_image(file: UploadFile = File(...), alt_text: str = "No description"):
     raw_bytes, w, h, mode = image_to_bytes(file.file)
-    encoded = encode_headers(raw_bytes, h, w, mode, alt_text)
-
-    # Reconstruct PIL for embeddings
     file.file.seek(0)
     pil_img = Image.open(file.file).convert("RGB")
-    alt_embedding = embed_alt_text(alt_text)
-    img_embedding = embed_image(pil_img)
 
-    buf = io.BytesIO(encoded)
-    buf.seek(0)
-    return JSONResponse(content={
-        "alt_embedding": alt_embedding,
-        "image_embedding": img_embedding,
-        "avj_file": "Use /download_avj to get the .avj file separately"
-    })
+    alt_emb = embed_alt_text(alt_text)
+    img_emb = embed_image(pil_img)
 
-@app.post("/download_avj/")
-async def download_avj(file: UploadFile = File(...), alt_text: str = "No description"):
-    raw_bytes, w, h, mode = image_to_bytes(file.file)
-    encoded = encode_headers(raw_bytes, h, w, mode, alt_text)
+    encoded = encode_headers_with_embeddings(raw_bytes, h, w, mode, alt_text, alt_emb, img_emb)
 
     buf = io.BytesIO(encoded)
     buf.seek(0)
@@ -111,23 +116,22 @@ async def download_avj(file: UploadFile = File(...), alt_text: str = "No descrip
         "Content-Disposition": f"attachment; filename={file.filename}.avj"
     })
 
+
 @app.post("/decode/metadata/")
 async def decode_metadata(file: UploadFile = File(...)):
     encoded_bytes = await file.read()
-    decoded = decode_headers(encoded_bytes)
+    decoded = decode_headers_with_embeddings(encoded_bytes)
 
-    # Compute embeddings
-    img = reconstruct_image(decoded["image_bytes"], decoded["width"], decoded["height"], decoded["mode"])
-    decoded.pop("image_bytes")
-    decoded["alt_embedding"] = embed_alt_text(decoded["alt_text"])
-    decoded["image_embedding"] = embed_image(img)
+    # Exclude raw image bytes from metadata response
+    decoded_meta = decoded.copy()
+    decoded_meta.pop("image_bytes")
+    return JSONResponse(content=decoded_meta)
 
-    return JSONResponse(content=decoded)
 
 @app.post("/decode/image/")
 async def decode_image(file: UploadFile = File(...)):
     encoded_bytes = await file.read()
-    decoded = decode_headers(encoded_bytes)
+    decoded = decode_headers_with_embeddings(encoded_bytes)
     img = reconstruct_image(decoded["image_bytes"], decoded["width"], decoded["height"], decoded["mode"])
 
     buf = io.BytesIO()
