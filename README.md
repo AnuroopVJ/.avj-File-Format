@@ -41,10 +41,8 @@ The `.avj` file consists of:
 
 A demonstration of encoding and decoding using Streamlit:
 
-<video width="640" height="360" controls>
-  <source src="demo_vid.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+[Watch Demo Video](demo_vid.mp4)
+
 
 
 ---
@@ -147,4 +145,5 @@ MIT License © 2025
 * Streamlit & FastAPI communities for web frameworks
 
 ---
+
 
