@@ -6,7 +6,7 @@
 
 A Python application to encode images into a custom `.avj` format, decode them, and generate embeddings using OpenAI's CLIP model. It includes both a **Streamlit frontend** for interactive use and a **FastAPI backend** for programmatic access.
 
-
+---
 
 ## Features
 
@@ -15,6 +15,7 @@ A Python application to encode images into a custom `.avj` format, decode them, 
 * **CLIP Embeddings**: Generate embeddings for both the image and its alt text for AI/ML applications.
 * **Streamlit Viewer**: Interactive UI to upload, view, and download `.avj` files or images.
 * **FastAPI API**: Endpoints for encoding, decoding, and retrieving embeddings programmatically.
+* **Demo Video**: See the app in action with `demo_vid.mp4`.
 
 ---
 
@@ -33,6 +34,18 @@ The `.avj` file consists of:
 * **Alt Text** (UTF-8)
 * **Mode** (UTF-8)
 * **Raw Image Bytes** (RGB)
+
+---
+
+## Demo Video
+
+A demonstration of encoding and decoding using Streamlit:
+
+<video width="640" height="360" controls>
+  <source src="demo_vid.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 
 ---
 
@@ -65,7 +78,7 @@ streamlit run streamlit_ui.py
 1. Start the FastAPI server:
 
 ```bash
-uvicorn streamlit_ui:app --reload
+uvicorn main:app --reload
 ```
 
 2. **Endpoints**:
@@ -114,9 +127,10 @@ print(response.json())
 
 ```
 ├── streamlit_ui.py    # Streamlit UI
-├── main.py          # FastAPI backend
-├── README.md               # Documentation
-└── requirements.txt        # Dependencies
+├── main.py            # FastAPI backend
+├── demo_vid.mp4       # Demo video of the app
+├── README.md          # Documentation
+└── requirements.txt   # Dependencies
 ```
 
 ---
@@ -133,3 +147,4 @@ MIT License © 2025
 * Streamlit & FastAPI communities for web frameworks
 
 ---
+
