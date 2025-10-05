@@ -1,149 +1,183 @@
-# .avj Encoder/Decoder with CLIP Embeddings
+# `.avj Encoder/Decoder with CLIP Embeddings`
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.101-green)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.30-orange)
 
-A Python application to encode images into a custom `.avj` format, decode them, and generate embeddings using OpenAI's CLIP model. It includes both a **Streamlit frontend** for interactive use and a **FastAPI backend** for programmatic access.
+A Python application to **encode images into a custom `.avj` format, generate CLIP embeddings, compress them, and decode them back**. The project includes:
+
+* **FastAPI backend** for programmatic access
+* **Streamlit frontend** for interactive encoding/decoding
+* **Lazy-loading CLIP models** for performance
+* Optional **Zstandard compression** for image bytes
 
 ---
 
 ## Features
 
-* **Custom `.avj` format**: Stores image bytes with metadata including width, height, channels, mode, and alt text.
-* **Encode / Decode Images**: Convert images to `.avj` and back to standard image formats (PNG).
-* **CLIP Embeddings**: Generate embeddings for both the image and its alt text for AI/ML applications.
-* **Streamlit Viewer**: Interactive UI to upload, view, and download `.avj` files or images.
-* **FastAPI API**: Endpoints for encoding, decoding, and retrieving embeddings programmatically.
-* **Demo Video**: See the app in action with `demo_vid.mp4`.
+* **Custom `.avj` format**: Stores image bytes, metadata, and CLIP embeddings in a single file.
+* **Encode / Decode Images**: Convert images to `.avj` and back to standard formats (PNG).
+* **CLIP Embeddings**: Generates embeddings for alt text and image for AI/ML applications.
+* **Compression**: Zstandard compression for smaller `.avj` file sizes.
+* **Lazy Loading**: CLIP models load only when needed, reducing startup time.
+* **Streamlit Viewer**: Interactive UI to upload, view, encode, and decode `.avj` files.
+* **FastAPI Endpoints**: Programmatic access to all features via REST API.
 
 ---
 
-## `.avj` Format
+## Project Structure
 
-The `.avj` file consists of:
-
-* **Header** (fixed size, 16 bytes + dynamic lengths)
-
-  * Magic: `AVJ1`
-  * Version: `1`
-  * Image Height, Width
-  * Channels (RGB)
-  * Alt Text Length
-  * Mode Length
-* **Alt Text** (UTF-8)
-* **Mode** (UTF-8)
-* **Raw Image Bytes** (RGB)
-
----
-
-## Demo Video
-
-A demonstration of encoding and decoding using Streamlit:
-
-[Watch Demo Video](demo_vid.mp4)
-
-
-
----
-
-## Requirements
-
-```bash
-Python 3.12+
-pip install streamlit fastapi uvicorn pillow torch transformers
+```
+AI_agentic_software_dev/
+│
+├─ api/                  # FastAPI endpoints
+│   └─ main.py
+│
+├─ encode_decode/        # Core logic for encoding, decoding, embeddings, and compression
+│   └─ encode_decode.py
+│
+├─ streamlit_ui/         # Streamlit frontend
+│   └─ main.py
+│
+├─ requirements.txt      # Python dependencies
+└─ README.md             # This file
 ```
 
 ---
 
-## Streamlit Usage
+## 🔹 `.avj` File Format
 
-1. Run the Streamlit app:
+The `.avj` file contains:
 
-```bash
-streamlit run streamlit_ui.py
-```
+1. **Header** (fixed-size + dynamic lengths):
 
-2. **Tabs**:
+| Field                       | Description                        |
+| --------------------------- | ---------------------------------- |
+| Magic (`AVJ1`)              | File identifier                    |
+| Version (`1`)               | Format version                     |
+| Height, Width               | Image dimensions                   |
+| Channels                    | Number of channels (RGB = 3)       |
+| Alt Text Length             | Bytes of UTF-8 alt text            |
+| Mode Length                 | Bytes of image mode (`RGB`)        |
+| Alt Embedding Length        | Float32 size of alt-text embedding |
+| Image Embedding Length      | Float32 size of image embedding    |
+| Compression Flag (optional) | 1 if compressed, 0 if raw          |
 
-   * **Decode `.avj`**: Upload a `.avj` file, view the image and metadata, download as PNG.
-   * **Encode to `.avj`**: Upload an image, provide alt text, and download the `.avj` file.
+2. **Payload**:
 
----
-
-## FastAPI Usage
-
-1. Start the FastAPI server:
-
-```bash
-uvicorn main:app --reload
-```
-
-2. **Endpoints**:
-
-| Endpoint            | Method | Description                                                                   |
-| ------------------- | ------ | ----------------------------------------------------------------------------- |
-| `/encode/`          | POST   | Upload image and alt text → Returns CLIP embeddings and `.avj` data reference |
-| `/download_avj/`    | POST   | Download `.avj` file for a given image and alt text                           |
-| `/decode/metadata/` | POST   | Upload `.avj` → Returns metadata + CLIP embeddings                            |
-| `/decode/image/`    | POST   | Upload `.avj` → Returns the decoded image as PNG                              |
-
-**Example with `curl`:**
-
-```bash
-curl -X POST "http://127.0.0.1:8000/encode/" \
--F "file=@example.png" \
--F "alt_text=An example image"
-```
+* Alt Text (UTF-8)
+* Image Mode (UTF-8)
+* Alt Text Embedding (float32)
+* Image Embedding (float32)
+* Raw or Compressed Image Bytes
 
 ---
 
-## Example Workflow
+## 💻 Installation
 
-1. Encode an image to `.avj` with alt text:
+```bash
+git clone <your_repo_url>
+cd AI_agentic_software_dev
+python -m venv venv
+source venv/bin/activate   # Linux/macOS
+venv\Scripts\activate      # Windows
+pip install -r requirements.txt
+```
+
+## 🚀 Running the App
+
+### 1. FastAPI Backend
+
+```bash
+uvicorn api.main:app --reload
+```
+
+**Endpoints**:
+
+| Endpoint            | Method | Description                                        |
+| ------------------- | ------ | -------------------------------------------------- |
+| `/encode/`          | POST   | Upload image + alt text → Returns `.avj` file      |
+| `/decode/metadata/` | POST   | Upload `.avj` → Returns metadata + embeddings      |
+| `/decode/image/`    | POST   | Upload `.avj` → Returns reconstructed PNG          |
+| `/compress/`        | POST   | Upload `.avj` → Returns Zstandard-compressed bytes |
+
+
+### 2. Streamlit Frontend
+
+```bash
+streamlit run streamlit_ui/main.py
+```
+
+**Features**:
+
+* **Encode to `.avj`**: Upload an image, enter alt text, download `.avj`.
+* **Decode `.avj`**: Upload `.avj`, view metadata, download PNG.
+* Compressed images use **Zstandard** for faster storage and smaller file sizes.
+---
+
+## 🔹 Example Workflow (Python)
+
+### Encode an image
 
 ```python
-from PIL import Image
 import requests
 
 with open("example.png", "rb") as f:
-    response = requests.post("http://127.0.0.1:8000/encode/", files={"file": f}, data={"alt_text": "Example image"})
-print(response.json())
+    response = requests.post(
+        "http://127.0.0.1:8000/encode/",
+        files={"file": f},
+        data={"alt_text": "Example image"}
+    )
+
+with open("example.avj", "wb") as out:
+    out.write(response.content)
 ```
 
-2. Decode `.avj` and retrieve image/metadata:
+### Decode metadata
 
 ```python
 with open("example.avj", "rb") as f:
-    response = requests.post("http://127.0.0.1:8000/decode/metadata/", files={"file": f})
+    response = requests.post(
+        "http://127.0.0.1:8000/decode/metadata/",
+        files={"file": f}
+    )
 print(response.json())
 ```
 
+### Decode image
+
+```python
+with open("example.avj", "rb") as f:
+    response = requests.post(
+        "http://127.0.0.1:8000/decode/image/",
+        files={"file": f}
+    )
+with open("decoded.png", "wb") as out:
+    out.write(response.content)
+```
+
 ---
 
-## Folder Structure
 
-```
-├── streamlit_ui.py    # Streamlit UI
-├── main.py            # FastAPI backend
-├── demo_vid.mp4       # Demo video of the app
-├── README.md          # Documentation
-└── requirements.txt   # Dependencies
-```
 
 ---
 
-## License
+## 📈 Needed Improvements
+
+* Compress embeddings for further `.avj` size reduction.
+* Batch encoding/decoding for multiple images.
+* CLIP-based search over `.avj` files.
+* Add encryption for secure storage.
+
+---
+
+## 📄 License
 
 MIT License © 2025
 
 ---
 
-## Acknowledgements
+## 🙏 Acknowledgements
 
-* OpenAI [CLIP Model](https://huggingface.co/openai/clip-vit-base-patch32)
+* [OpenAI CLIP](https://huggingface.co/openai/clip-vit-base-patch32)
 * Streamlit & FastAPI communities for web frameworks
-
----
-
-
