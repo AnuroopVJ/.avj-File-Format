@@ -4,12 +4,12 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.101-green)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.30-orange)
 
-A Python application to **encode images into a custom `.avj` format, generate CLIP embeddings, compress them, and decode them back**. The project includes:
+A Python application to **encode images into a custom `.avj` format with auto-generated CLIP embeddings**. The project includes:
 
 * **FastAPI backend** for programmatic access
 * **Streamlit frontend** for interactive encoding/decoding
 * **Lazy-loading CLIP models** for performance
-* Optional **Zstandard compression** for image bytes
+* **Zstandard compression** for image bytes
 
 ---
 
@@ -45,7 +45,7 @@ AI_agentic_software_dev/
 
 ---
 
-## 🔹 `.avj` File Format
+## `.avj` File Format
 
 The `.avj` file contains:
 
@@ -73,7 +73,7 @@ The `.avj` file contains:
 
 ---
 
-## 💻 Installation
+## Installation
 
 ```bash
 git clone <your_repo_url>
@@ -84,7 +84,7 @@ venv\Scripts\activate      # Windows
 pip install -r requirements.txt
 ```
 
-## 🚀 Running the App
+## Running the App
 
 ### 1. FastAPI Backend
 
@@ -162,7 +162,7 @@ with open("decoded.png", "wb") as out:
 
 ---
 
-## 📈 Needed Improvements
+## Needed Improvements
 
 * Compress embeddings for further `.avj` size reduction.
 * Batch encoding/decoding for multiple images.
@@ -171,7 +171,7 @@ with open("decoded.png", "wb") as out:
 
 ---
 
-## 📄 License
+## License
 
 MIT License © 2025
 
@@ -181,3 +181,4 @@ MIT License © 2025
 
 * [OpenAI CLIP](https://huggingface.co/openai/clip-vit-base-patch32)
 * Streamlit & FastAPI communities for web frameworks
+
