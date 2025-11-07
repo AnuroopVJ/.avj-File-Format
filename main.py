@@ -6,7 +6,7 @@ import io
 import numpy as np
 import torch
 from transformers import CLIPProcessor, CLIPModel
-
+import zstandard as zstd
 # ------------------- FastAPI App -------------------
 app = FastAPI(title=".avj Encoder/Decoder with Embeddings")
 
@@ -14,6 +14,8 @@ app = FastAPI(title=".avj Encoder/Decoder with Embeddings")
 # Header now includes lengths of alt_text embedding and image embedding
 HEADER_FORMAT = '<4s H I I B H B I I'
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+cctx = zstd.ZstdCompressor()
+dctx = zstd.ZstdDecompressor()
 
 def image_to_bytes(image_file):
     img = Image.open(image_file).convert("RGB")
@@ -81,6 +83,13 @@ def decode_headers_with_embeddings(encoded_bytes):
 def reconstruct_image(image_bytes, width, height, mode="RGB"):
     return Image.frombytes(mode, (width, height), image_bytes)
 
+
+def compress_image_bytes(image_bytes):
+    compressed = cctx.compress(image_bytes)
+    return compressed
+
+
+
 # ------------------- CLIP Embeddings -------------------
 clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -107,8 +116,8 @@ async def encode_image(file: UploadFile = File(...), alt_text: str = "No descrip
 
     alt_emb = embed_alt_text(alt_text)
     img_emb = embed_image(pil_img)
-
-    encoded = encode_headers_with_embeddings(raw_bytes, h, w, mode, alt_text, alt_emb, img_emb)
+    compressed = compress_image_bytes(raw_bytes)
+    encoded = encode_headers_with_embeddings(compressed, h, w, mode, alt_text, alt_emb, img_emb)
 
     buf = io.BytesIO(encoded)
     buf.seek(0)
@@ -132,7 +141,9 @@ async def decode_metadata(file: UploadFile = File(...)):
 async def decode_image(file: UploadFile = File(...)):
     encoded_bytes = await file.read()
     decoded = decode_headers_with_embeddings(encoded_bytes)
-    img = reconstruct_image(decoded["image_bytes"], decoded["width"], decoded["height"], decoded["mode"])
+    data = decoded["image_bytes"]
+    decompressed = dctx.decompress(data)
+    img = reconstruct_image(decompressed, decoded["width"], decoded["height"], decoded["mode"])
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
